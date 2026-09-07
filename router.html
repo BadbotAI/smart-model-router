@@ -19,7 +19,7 @@
 <script src="./mock_data.js?v=fbb265e6"></script>
 <script src="./mock_api.js?v=2d0ec87d"></script>
 <script src="./tokens.js?v=360e29ec"></script>
-<script src="./ui.js?v=13fc5fd8"></script>
+<script src="./ui.js?v=150b70e8"></script>
 <script src="./components.js?v=2e39e148"></script>
 <script src="./testchat.js?v=28405b2b"></script>
 <script>
@@ -38,7 +38,7 @@ let pollTimer = null;
 
 function showSection(key, first = false) {
   if (key === "profile" || key === "policies") key = "dispatch"; // 旧深链兼容
-  if (!RENDER[key]) key = "models";
+  if (!RENDER[key]) key = "dispatch";
   if (!first && key === activeTab) return;
   activeTab = key;
   clearInterval(pollTimer); clearTimeout(profilePollTimer); clearTimeout(evolvePollTimer);
@@ -1394,7 +1394,7 @@ setTimeout(async () => {
   }
 }, 900);
 window.addEventListener("hashchange", () => showSection(location.hash.replace("#", "")));
-showSection(location.hash.replace("#", "") || "models", true);
+showSection(location.hash.replace("#", "") || "dispatch", true);
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(function(){});</script>
 </body>

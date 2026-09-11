@@ -104,8 +104,9 @@ window.UI = (function () {
       }, [it.label])));
     document.body.appendChild(pop);
     const r = anchorBtn.getBoundingClientRect();
-    pop.style.top = (r.bottom + window.scrollY + 4) + "px";
-    pop.style.left = Math.min(r.left + window.scrollX, window.innerWidth - pop.offsetWidth - 12) + "px";
+    pop.style.position = "fixed";
+    pop.style.top = (r.bottom + 4) + "px";
+    pop.style.left = Math.min(r.left, window.innerWidth - pop.offsetWidth - 12) + "px";
     const close = (e) => { if (!pop.contains(e.target) && e.target !== anchorBtn) { pop.remove(); document.removeEventListener("click", close, true); } };
     setTimeout(() => document.addEventListener("click", close, true), 0);
     return pop;
@@ -209,16 +210,16 @@ window.UI = (function () {
   // 两个平台各自独立的导航；共享页（操作日志等）按 window.SIA_PLATFORM 或高亮键推断归属
   const PLATFORMS = {
     ia: {
-      name: "智能交互平台", home: "./index.html",
+      name: "智能交互平台", home: "./index.html", productSwitcher: true,
       groups: [
-        { title: "智能交互", items: [
-          ["cards", "组件工作台", "./cards.html", "board"],
-          ["library", "组件库", "./library.html", "grid"],
-          ["products", "产品及风格管理", "./products.html", "link"],
-          ["playground:comp", "智能交互测试", "./playground.html#comp", "chat"],
-          ["dashboard:survey", "交互数据", "./dashboard.html#survey", "chart"],
+        // 切换器（全局上下文）之下 = 当前产品维度的三页一组；全局管理沉到底部区
+        { title: "当前产品", items: [
+          ["cards", "组件工作台", "./cards.html", "sliders"],
+          ["library", "组件模板", "./library.html", "grid"],
+          ["design", "风格主题", "./design.html", "palette"],
         ] },
       ],
+      footItems: [["products", "产品与接入", "./products.html", "box"]],
     },
     router: {
       name: "模型路由平台", home: "./home-router.html",
@@ -244,6 +245,88 @@ window.UI = (function () {
     if (active === "router") return "router";
     return "ia";
   }
+  // v2.1：导航顶部产品切换器——展示当前产品，点击下拉切换（存 localStorage sia_product，工作台等按其聚焦）
+  async function mountProductSwitcher(host) {
+    // 首帧：用上次缓存的产品名立即画切换行（避免拉取期间导航下移抖动）；数据回来后原位替换
+    let ghost = null;
+    try {
+      const meta = JSON.parse(localStorage.getItem("sia_product_meta") || "null");
+      if (meta && meta.name) {
+        ghost = el("button", { class: "np-btn", type: "button", disabled: "" }, [
+          el("span", { class: "np-avatar", style: "width:22px;height:22px;background:var(--border)" }, [String(meta.name).slice(0, 1)]),
+          el("span", { class: "np-meta" }, [el("span", { class: "np-name" }, [meta.name])]),
+          el("span", { class: "fsel-caret" }, [icon("chevron", 13)]),
+        ]);
+        host.appendChild(ghost);
+      }
+    } catch (e) {}
+    try {
+      const { products } = await api("/api/products");
+      if (ghost) { ghost.remove(); ghost = null; }
+      if (!products || !products.length) return;
+      const saved = localStorage.getItem("sia_product");
+      let cur = products.find(p => p.product_id === saved) || products[0];
+      try { localStorage.setItem("sia_product_meta", JSON.stringify({ name: cur.name })); } catch (e) {}
+      const HUES = [["#3E63DD", "#8E4EC6"], ["#0FA968", "#1D7FBF"], ["#FF6B4A", "#D97706"],
+                    ["#4F5BD5", "#D9569B"], ["#D97706", "#B85C38"], ["#334155", "#5B7A9D"]];
+      const hueOf = (name) => { let h = 0; for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return HUES[h % HUES.length]; };
+      const avatar = (name, size) => {
+        const [a, b] = hueOf(name);
+        return el("span", { class: "np-avatar", style: `width:${size}px;height:${size}px;background:linear-gradient(135deg,${a},${b})` },
+          [String(name).slice(0, 1)]);
+      };
+      const nameEl = el("span", { class: "np-name" }, [cur.name]);
+      const avaHost = el("span", { style: "display:inline-flex;flex:none" }, [avatar(cur.name, 22)]);
+      const btn = el("button", { class: "np-btn", type: "button", title: "点击切换产品" }, [
+        avaHost,
+        el("span", { class: "np-meta" }, [nameEl]),
+        el("span", { class: "fsel-caret" }, [icon("chevron", 13)]),
+      ]);
+      btn.onclick = () => {
+        document.querySelectorAll(".menu-pop").forEach(n => n.remove());
+        const pop = el("div", { class: "menu-pop np-pop", role: "listbox" }, [
+          el("div", { class: "np-pop-head" }, ["切换产品",
+            el("span", { class: "np-pop-count" }, [products.length + " 个"])]),
+        ]);
+        products.forEach(p => {
+          const on = p.product_id === cur.product_id;
+          pop.appendChild(el("button", {
+            class: "np-card" + (on ? " on" : ""), role: "option",
+            onclick: () => {
+              pop.remove();
+              localStorage.setItem("sia_product", p.product_id);
+              localStorage.setItem("sia_product_meta", JSON.stringify({ name: p.name }));
+              // 切产品 = 切它的风格主题：平台内预览（工作台 / 编辑器 / 组件模板）立即跟随
+              if (p.brand_file) localStorage.setItem("brand_file", p.brand_file);
+              cur = p;
+              location.reload();
+            } }, [
+            avatar(p.name, 34),
+            el("span", { class: "np-card-meta" }, [
+              el("span", { class: "np-card-name" }, [p.name]),
+              el("span", { class: "np-card-sub" }, [(p.card_ids || []).length + " 个组件实例"]),
+            ]),
+            on ? el("span", { class: "np-card-check" }, [icon("check", 15)]) : null,
+          ]));
+        });
+                pop.appendChild(el("button", { class: "np-card np-new", role: "option", onclick: () => {
+          location.href = "./products.html?new=1";
+        } }, [
+          el("span", { class: "np-avatar", style: "width:34px;height:34px;background:var(--primary-weak);color:var(--primary)" }, ["+"]),
+          el("span", { class: "np-meta" }, [el("span", { class: "np-name", style: "color:var(--primary)" }, ["新建产品"])]),
+        ]));
+        document.body.appendChild(pop);
+        const r = btn.getBoundingClientRect();
+        pop.style.minWidth = r.width + "px";
+        pop.style.left = (r.left + window.scrollX) + "px";
+        pop.style.top = (r.bottom + window.scrollY + 6) + "px";
+        const close = (e) => { if (!pop.contains(e.target) && !btn.contains(e.target)) { pop.remove(); document.removeEventListener("click", close, true); } };
+        setTimeout(() => document.addEventListener("click", close, true), 0);
+      };
+      host.appendChild(btn);
+    } catch (e) {}
+  }
+
   function nav(active) {
     document.querySelectorAll(".sidenav").forEach(n => n.remove());
     const plat = PLATFORMS[platformOf(active)];
@@ -261,6 +344,12 @@ window.UI = (function () {
         return a;
       })(),
     ]);
+    // 全局上下文：当前产品切换条（logo 正下方，作用于全站，不属于任何导航组）
+    if (plat.productSwitcher) {
+      const swSlot = el("div", { class: "np-context", style: "min-height:36px" });
+      side.appendChild(swSlot);
+      mountProductSwitcher(swSlot);
+    }
     // 二级项按 #hash 高亮；无 hash 时默认该页第一个二级项
     const isActive = (key) => {
       if (key === active) return true;
@@ -276,10 +365,13 @@ window.UI = (function () {
       }, [icon(ic, 17), el("span", {}, [name])])));
       side.appendChild(box);
     });
-    // 审计日志：低频入口，收在底部账户上方
+    // 底部全局区：跨产品的管理入口（产品与接入）+ 审计日志
     side.appendChild(el("div", { class: "nav-group", style: "margin-top:auto" }, [
+      ...((plat.footItems || []).map(([key, name, href, ic]) => el("a", {
+        class: "navlink" + (isActive(key) ? " active" : ""), href, "data-key": key,
+      }, [icon(ic, 17), el("span", {}, [name])]))),
       el("a", { class: "navlink" + (active === "audit" ? " active" : ""), href: "./audit.html", "data-key": "audit" }, [
-        icon("layers", 17), el("span", {}, ["操作日志"]),
+        icon("loglist", 17), el("span", {}, ["操作日志"]),
       ]),
     ]));
     side.appendChild(el("div", { class: "nav-account", style: "margin-top:0" }, [
@@ -373,6 +465,13 @@ window.UI = (function () {
     return node;
   }
   const INK = () => getComputedStyle(document.documentElement).getPropertyValue("--text-muted").trim() || "#898781";
+  const fmtTick = (v) => {
+    const a = Math.abs(v);
+    if (a < 1e-9) return "0";
+    if (a >= 100) return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    if (a >= 1) { const r = Math.round(v * 10) / 10; return r % 1 === 0 ? String(r) : r.toFixed(1); }
+    return v.toFixed(2);
+  };
   const GRID = () => Brand.chartPalette().grid || "#e1e0d9";
 
   function chartFrame(w, h) {
@@ -402,8 +501,7 @@ window.UI = (function () {
         svg.appendChild(gl);
       }
       const tl = svgEl("text", { x: padL - 6, y: gy + 4, "text-anchor": "end", "font-size": 10, fill: INK() });
-      const v0 = Math.abs(val) < 1e-9 ? 0 : val;
-      tl.textContent = v0 >= 100 ? Math.round(v0) : v0.toFixed(v0 >= 1 ? 1 : 3);
+      tl.textContent = fmtTick(maxV - g * span / 3);
       svg.appendChild(tl);
     }
     if (axisShow) svg.appendChild(svgEl("line", { x1: padL, y1: h - padB, x2: w - padR, y2: h - padB,
@@ -516,8 +614,7 @@ window.UI = (function () {
         svg.appendChild(gl);
       }
       const tl = svgEl("text", { x: padL - 6, y: gy + 4, "text-anchor": "end", "font-size": 10, fill: INK() });
-      const val = maxV * (1 - g / 3);
-      tl.textContent = val >= 100 ? Math.round(val) : val.toFixed(val >= 1 ? 1 : 3);
+      tl.textContent = fmtTick(maxV * (1 - g / 3));
       svg.appendChild(tl);
     }
     values.forEach((v, i) => {
@@ -532,6 +629,12 @@ window.UI = (function () {
       });
       svgTitle(rect, `${categories[i]}: ${v}${unit}`);
       svg.appendChild(rect);
+      if (valueLabels && values.length <= 12) {
+        const vt = svgEl("text", { x: bx + bw / 2, y: h - padB - bh - 5, "text-anchor": "middle",
+          "font-size": 10, fill: "var(--text-secondary)", style: "font-variant-numeric:tabular-nums" });
+        vt.textContent = fmtTick(v);
+        svg.appendChild(vt);
+      }
       const tx = svgEl("text", { x: bx + bw / 2, y: h - 10, "text-anchor": "middle", "font-size": 10, fill: INK() });
       tx.textContent = String(categories[i]).slice(0, 6);
       svg.appendChild(tx);
@@ -584,6 +687,11 @@ window.UI = (function () {
     // 魔法棒：一根斜杖 + 杖头一颗实心四角星 + 一粒小光点。16px 下仍清晰，不再是一堆碎星
     wand: '<path d="M3.5 20.5 13 11" stroke-width="2"/><path d="M16.5 2.5l1.3 3.2 3.2 1.3-3.2 1.3-1.3 3.2-1.3-3.2L12 7l3.2-1.3z" fill="currentColor" stroke="none"/><circle cx="7" cy="6" r="1" fill="currentColor" stroke="none"/>',
     copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/>',
+    thumbup: '<path d="M7 11v9M7 11l3.2-6.4A1.8 1.8 0 0 1 13.6 5v4h4.6a1.8 1.8 0 0 1 1.8 2.1l-1.1 6.4a1.8 1.8 0 0 1-1.8 1.5H7"/>',
+    alert: '<path d="M12 4 21 19.5H3z" stroke-linejoin="round"/><path d="M12 10.2v4M12 16.8h.01"/>',
+    thumbdown: '<path d="M17 13V4M17 13l-3.2 6.4A1.8 1.8 0 0 1 10.4 19v-4H5.8A1.8 1.8 0 0 1 4 12.9l1.1-6.4A1.8 1.8 0 0 1 6.9 5H17"/>',
+    arrowup: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+    arrowdown: '<path d="M12 5v14M6 13l6 6 6-6"/>',
     search: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     x: '<path d="M6 6l12 12M18 6 6 18"/>',
@@ -592,6 +700,8 @@ window.UI = (function () {
     check: '<path d="m5 12 4.5 4.5L19 7"/>',
     chevron: '<path d="m6 9 6 6 6-6"/>',
     board: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16M9 9v11"/>',
+    box: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5"/><path d="M12 12v9"/>',
+    loglist: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor" stroke="none"/>',
     database: '<ellipse cx="12" cy="6" rx="7" ry="2.8"/><path d="M5 6v12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8V6"/><path d="M5 12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8"/>',
     palette2: '<circle cx="12" cy="12" r="8.5"/><circle cx="9" cy="9.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8.8" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="13.5" r="1.2" fill="currentColor" stroke="none"/><path d="M12 20.5c-1.8 0-2.4-1.4-1.4-2.5.9-1 .3-2.5-1-2.5H8"/>',
     route2: '<path d="M5 20V10a4 4 0 0 1 4-4h10"/><path d="m15 2 4 4-4 4"/><path d="M5 14h7a4 4 0 0 1 4 4v2"/>',

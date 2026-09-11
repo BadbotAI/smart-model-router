@@ -2,27 +2,13 @@
 window.Brand = (function () {
   let current = null;
 
-  // file:// 不能 fetch 同目录 JSON；静态演示直接使用等价的内置品牌 token。
-  const FILE_TOKENS = {
-    "brand-tokens.default.json": {
-      color: { primary: "#1DA1F2", primary_weak: "#E9F1FB", bg_page: "#FFFFFF", bg_surface: "#F7F8F8",
-        text_primary: "#0F1B26", text_secondary: "#43596B", text_muted: "#71828F", border: "#E1EAF1",
-        success: "#17A673", warning: "#B97A17", danger: "#E5484D" },
-      chart: { categorical: ["#1DA1F2", "#17B890", "#F2C14E", "#6E4BD8"], grid: "#E1EAF1", axis: "#71828F" }
-    },
-    "brand-tokens.harbor.json": {
-      color: { primary: "#0F766E", primary_weak: "#E0F2F0", bg_page: "#F6F8F8", bg_surface: "#FFFFFF",
-        text_primary: "#102A2A", text_secondary: "#4A5C5C", text_muted: "#8A9797", border: "#DBE4E3",
-        success: "#0CA30C", warning: "#FAB219", danger: "#D03B3B" },
-      chart: { categorical: ["#2A78D6", "#EB6834", "#0F766E", "#8B5CF6"], grid: "#DBE4E3", axis: "#8A9797" }
-    }
-  };
-
   const VAR_MAP = {
     "color.primary": "--primary",
     "color.primary_weak": "--primary-weak",
     "color.bg_page": "--bg-page",
     "color.bg_surface": "--bg-surface",
+    "color.bg_elevated": "--bg-elevated",
+    "color.bg_sunken": "--bg-sunken",
     "color.text_primary": "--text-primary",
     "color.text_secondary": "--text-secondary",
     "color.text_muted": "--text-muted",
@@ -46,6 +32,11 @@ window.Brand = (function () {
     "motion.duration_base": "--dur-base",
     "chart.grid": "--chart-grid",
     "chart.axis": "--chart-axis",
+    // v2 语义 token：强调色 / 焦点环 / 阴影 / 密度
+    "color.accent": "--brand-accent",
+    "color.ring": "--brand-ring",
+    "shadow": "--brand-shadow",
+    "density": "--brand-density",
   };
 
   function get(obj, path) {
@@ -66,30 +57,36 @@ window.Brand = (function () {
   }
 
   async function load(file) {
-    if (location.protocol === "file:") {
-      apply(FILE_TOKENS[file] || FILE_TOKENS["brand-tokens.default.json"]);
-      localStorage.setItem("brand_file", file);
-      return;
-    }
     const res = await fetch("./brand/" + file);
     apply(await res.json());
     localStorage.setItem("brand_file", file);
   }
 
   async function init() {
-    // 生效风格是租户级设置（服务端），本地记录仅作降级
+    // 优先级：当前产品的风格主题（切产品 = 切风格）> 租户级 active > 本地记录
     let file = localStorage.getItem("brand_file") || "brand-tokens.default.json";
-    try {
-      const r = await fetch("/api/brands/active");
-      file = (await r.json()).file || file;
-    } catch (e) { /* 服务端不可达时用本地记录 */ }
+    const pid = localStorage.getItem("sia_product");
+    let fromProduct = null;
+    if (pid) {
+      try {
+        const pr = await fetch("/api/products").then(x => x.json());
+        fromProduct = ((pr.products || []).find(p => p.product_id === pid) || {}).brand_file;
+      } catch (e) {}
+    }
+    if (fromProduct) file = fromProduct;
+    else {
+      try {
+        const r = await fetch("/api/brands/active");
+        file = (await r.json()).file || file;
+      } catch (e) { /* 服务端不可达时用本地记录 */ }
+    }
     if (window._editingStyle) return; // 风格编辑器预览中，勿覆盖
     try { await load(file); } catch (e) { await load("brand-tokens.default.json"); }
   }
 
   function chartPalette() {
     return (current && current.chart) || {
-      categorical: ["#1DA1F2", "#17B890", "#F2C14E", "#2ECC71", "#E0446E", "#6E4BD8", "#B97A17", "#E5484D"],
+      categorical: ["#3E63DD", "#0FA3A3", "#8E4EC6", "#EE7712", "#D6409F", "#30A46C", "#D6970A", "#E5484D"],
       sequential: ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"],
       grid: "#e1e0d9", axis: "#c3c2b7",
     };

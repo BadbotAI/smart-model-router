@@ -44,14 +44,20 @@ window.TestChat = (function () {
           { label: "调度策略", items: (policies || []).filter(p => p.enabled && !p.ab_group).map(p => {
             const hex = String(p.policy_id).replace(/[^0-9a-f]/gi, "").slice(0, 8) || "0";
             const sid = String(parseInt(hex, 16) % 1000000).padStart(6, "0");
-            return { kind: "policy", value: p.policy_id, label: (p.name || p.policy_id) + " · ID:" + sid };
+            return { kind: "policy", value: p.policy_id, label: (p.name || p.policy_id) + " · ID:" + sid,
+              allow_aggregation: !!p.allow_aggregation,
+              default_aggregation: (p.params || {}).default_aggregation === "on" ? "on" : "off" };
           }) },
           { label: "多模型", items: [{ kind: "multi", value: null, label: "多模型回答 + 择优" }] },
           { label: "指定模型", items: actives.map(m => ({ kind: "model", value: m.model_id, label: m.display_name })) },
         ];
         const preset = opts.model && actives.find(m => m.model_id === opts.model);
         if (preset) setPick("model", preset.model_id, preset.display_name);
-        else if (pickGroups[0].items.length) { const f = pickGroups[0].items[0]; setPick("policy", f.value, f.label); }
+        else if (pickGroups[0].items.length) {
+          const f = pickGroups[0].items[0];
+          setPick("policy", f.value, f.label);
+          aggState.value = f.allow_aggregation ? f.default_aggregation : "off";
+        }
         drawModeBar();
       });
     modelSel.onclick = () => {
@@ -74,7 +80,7 @@ window.TestChat = (function () {
       const close = (e) => { if (!pop.contains(e.target) && e.target !== modelSel) { pop.remove(); document.removeEventListener("click", close, true); } };
       setTimeout(() => document.addEventListener("click", close, true), 0);
     };
-    const aggState = { value: "auto" }; // 请求级 aggregate 参数（仅模型路由测试页暴露）
+    const aggState = { value: "off" }; // 默认值随所选策略初始化，用户仍可在允许范围内按次调整
     const isAuto = () => pickState.kind !== "model";
     const pickedPolicy = () => pickState.kind === "policy" ? pickState.value : null;
     const pickedMode = () => pickState.kind === "multi" ? "multi" : (pickState.kind === "model" ? "manual" : "auto");
@@ -101,13 +107,23 @@ window.TestChat = (function () {
         const f = policies2[0]; setPick("policy", f.value, f.label);
       }
       modeBar.appendChild(el("span", { class: "muted", style: "flex:none;font-size:var(--font-small)" }, ["路由策略"]));
+      const syncAggregation = (policy) => {
+        aggState.value = policy && policy.allow_aggregation ? policy.default_aggregation : "off";
+      };
       modeBar.appendChild(UI.fancySelect({ value: pickState.value, width: "210px",
         options: policies2.map(it => [it.value, it.label]),
-        onChange: (v) => { const hit = policies2.find(x => x.value === v); setPick("policy", v, hit ? hit.label : v); } }));
-      // 模拟客户端的 aggregate 传参：验证「按次覆盖聚合开关」与策略硬约束是否生效
+        onChange: (v) => {
+          const hit = policies2.find(x => x.value === v);
+          setPick("policy", v, hit ? hit.label : v);
+          syncAggregation(hit);
+          drawModeBar();
+        } }));
+      // 初始值来自策略配置；不再提供“跟随策略默认”这一中间态。
+      const activePolicy = policies2.find(it => it.value === pickState.value);
+      if (activePolicy && !activePolicy.allow_aggregation) aggState.value = "off";
       modeBar.appendChild(el("span", { class: "muted", style: "flex:none;font-size:var(--font-small);margin-left:10px" }, ["聚合参数"]));
       modeBar.appendChild(UI.fancySelect({ value: aggState.value, width: "150px",
-        options: [["auto", "跟随策略默认"], ["on", "强制聚合"], ["off", "关闭聚合"]],
+        options: activePolicy && activePolicy.allow_aggregation ? [["on", "打开聚合"], ["off", "关闭聚合"]] : [["off", "关闭聚合"]],
         onChange: (v) => { aggState.value = v; } }));
       modeBar.appendChild(el("div", { style: "flex:1" }));
     }
@@ -174,6 +190,8 @@ window.TestChat = (function () {
       scrollBottom();
       const addStep = (t, evt2) => {
         if (!opts.keepReasoning) return;
+        // 回答模型和聚合模型会在最终决策行中明确展示，避免在过程里重复一遍。
+        if (["fastlane", "switch", "manual_select"].includes(evt2?.step)) return;
         const node = el("div", { class: "reason-step" }, [el("span", { class: "dot" }, ["·"]), el("span", {}, [t])]);
         reason.appendChild(node);
         // 粗排打分：展示各候选模型的历史命中率（论文 Step 2 的过程数据）
@@ -197,7 +215,7 @@ window.TestChat = (function () {
           body: JSON.stringify({ tenant_id: TENANT, session_id: SESSION, user_id: USER, text,
             card_context: cardContext, skip_card_match: !!o.skipCardMatch,
             mode: pickedMode(), manual_model: pickState.kind === "model" ? pickState.value : null,
-            aggregate: opts.keepReasoning && aggState.value !== "auto" ? aggState.value : undefined,
+            aggregate: opts.keepReasoning ? aggState.value : undefined,
             policy_id: pickedPolicy() }),
         });
         const reader = res.body.getReader();
@@ -235,14 +253,8 @@ window.TestChat = (function () {
 
     function renderFinal(bubble, reason, evt, originText) {
       const steps = reason.querySelectorAll(".reason-step").length;
-      if (!steps) reason.remove();
-      else {
-        // 过程数据是临时态：回答落定后折叠收纳，可展开回看
-        const summary = el("details", {}, [el("summary", { class: "muted", style: "cursor:pointer" },
-          [(opts.keepReasoning ? "路由推导过程" : "思考过程") + `（${steps} 步）`])]);
-        [...reason.childNodes].forEach(n => { if (n.classList && (n.classList.contains("reason-step") || n.classList.contains("rs-bars"))) summary.appendChild(n); });
-        reason.replaceWith(el("div", { class: "reason-panel" }, [summary]));
-      }
+      const processNodes = [...reason.childNodes].filter(n => n.classList &&
+        (n.classList.contains("reason-step") || n.classList.contains("rs-bars")));
       const ctx = {
         traceId: evt.trace_id, turnId: evt.turn_id, sessionId: SESSION, userId: USER,
         routeContext: evt.route_context || {},
@@ -264,56 +276,30 @@ window.TestChat = (function () {
             send("继续执行刚才的操作", { summary: "用户已确认执行该高风险操作" });
         },
       };
-      // 展示顺序：思考过程(已折叠) -> 路由决策(收起可展开) -> 回复 -> 底部路径标签小字
+      // 展示顺序：路由推导与决策（一个卡片）-> 回复 -> 底部路径标签小字
       let ansTag = null, candDetails = null;
+      let routeCardRendered = false;
       if (evt.decision_summary && opts.keepReasoning) {
         const d = evt.decision_summary;
         const pol = d.policy || {};
         const rows = [];
-        // 三层路由（v7）：命中层级 + 智能路由模型判定的 benchmark 维度
-        const DIM_NAMES = { knowledge: "通用知识", math: "数学推理", coding: "代码生成", writing: "长文写作",
-          instruct: "指令遵循", chinese: "中文理解", multimodal: "多模态理解" };
-        const LAYER_NAMES = { rule: "第 1 层 · 硬规则", dims: "第 2 层 · 智能判维",
-          no_router: "兜底 · 未配置路由模型", "else": "第 3 层 · else 兜底" };
-        const dimLabels = (d.dimensions || []).map(k => DIM_NAMES[k] || k);
+        // 决策摘要只保留策略、回答模型、聚合模型与成本；推导步骤放在同一卡片上方。
         if (d.mode === "manual") {
-          rows.push(["策略", "手动指定模型（不走智能路由）"]);
+          rows.push(["策略", `手动路由 · ${pol.allow_aggregation ? `允许聚合 · 本次${d.aggregate_override === "on" ? "聚合" : "不聚合"}` : "不允许聚合"}`]);
         } else {
           rows.push(["策略", `${pol.name || pol.policy_id || "-"} · 成本-效果权重 ${pol.alpha ?? "-"} · ` +
-            (pol.allow_aggregation ? "允许聚合" : "仅单模型") +
-            (d.aggregate_override_denied ? `（请求要求 aggregate=${d.aggregate_override}，被策略硬约束拒绝）`
-              : d.aggregate_override ? `（本次被请求参数 aggregate=${d.aggregate_override} 覆盖）` : "")]);
-          if (d.route_layer) {
-            rows.push(["层级", (LAYER_NAMES[d.route_layer] || d.route_layer) +
-              (dimLabels.length && d.route_layer !== "else" && d.route_layer !== "no_router"
-                ? ` · 相关维度「${dimLabels.join("、")}」` : "")]);
-          }
-          rows.push(["推导", d.route_layer === "no_router"
-            ? "未配置智能路由模型：无法判定相关维度，直连兜底模型（在「模型画像」页配置后恢复智能路由）"
-            : d.route_layer === "else"
-            ? "判定维度全部缺分或候选异常，走 else 兜底直连"
-            : d.route_layer === "rule" && !(d.dimensions || []).length
-            ? "硬规则命中日常闲聊：最便宜的在线模型轻量直答，不判维、不聚合"
-            : (d.dimensions || []).includes("multimodal")
-            ? "硬规则命中多模态请求，只在支持图像的模型中按判定维度的得分选择"
-            : {
-            fastlane: "取各模型在判定维度的 benchmark 平均分，融合省钱分算综合分——最高分显著领先（或策略仅单模型），直接单模型作答",
-            routed: "候选并发作答后结合回答质量与消耗细排，单模型胜出",
-            aggregated: "综合分接近，按策略允许聚合：多路回答交给聚合模型总结定稿",
-            fallback: "候选不可用，切兜底模型直连",
-            degraded: "候选模型异常，按稳态规则降级处理",
-          }[d.switch_result] || "按策略参数推导路由去向"]);
+            (pol.allow_aggregation ? `允许聚合 · 本次${d.aggregate_override === "on" ? "聚合" : "不聚合"}` : "不允许聚合")]);
         }
         const modelName = (id) => {
           const hit = (pickGroups.find(g => g.label === "指定模型") || { items: [] }).items.find(x => x.value === id);
           return hit ? hit.label : (id || "-");
         };
         const finalName = d.final_model || "-";
-        rows.push(["模型", el("span", {}, [
-          ...(d.candidates || [finalName]).map((m, i) => el("span", {}, [
-            i ? "、" : "", m === finalName && !d.aggregator ? el("strong", {}, [modelName(m)]) : modelName(m)])),
-          d.aggregator ? el("span", {}, ["，由 ", el("strong", {}, [modelName(d.aggregator)]), " 聚合定稿"]) : null,
-        ])]);
+        const answerModels = d.candidates && d.candidates.length ? d.candidates : [finalName];
+        rows.push(["回答模型", el("span", {}, answerModels.map((m, i) => el("span", {}, [
+          i ? "、" : "", !d.aggregator && m === finalName ? el("strong", {}, [modelName(m)]) : modelName(m),
+        ])))]);
+        if (d.aggregator) rows.push(["聚合模型", el("strong", {}, [modelName(d.aggregator)])]);
         const calls = d.model_calls || [];
         if (calls.length) {
           rows.push(["成本", el("span", { class: "num" }, [
@@ -323,17 +309,20 @@ window.TestChat = (function () {
         } else {
           rows.push(["成本", `${UI.fmtCost(d.total_cost)} · ${UI.fmtMs(d.total_latency_ms)}`]);
         }
-        bubble.appendChild(el("details", { class: "route-cot" }, [
-          el("summary", { class: "rc-title" }, ["路由决策"]),
+        const routeCard = el("details", { class: "route-cot" }, [
+          el("summary", { class: "rc-title" }, [`路由推导与决策（${steps} 步）`]),
+          ...processNodes,
           ...rows.map(([k, v]) => el("div", { class: "rc-row" }, [
             el("span", { class: "rc-k" }, [k]), el("span", { class: "rc-v" }, [v]),
           ])),
-        ]));
+        ]);
+        reason.replaceWith(routeCard);
+        routeCardRendered = true;
         // 底部标签：同首页卡片式（蓝 chip + 小字）
         const tagText = {
           explore: `随机探索 · ${modelName(finalName)}`,
           aggregated: `聚合定稿 · 由 ${modelName(d.aggregator || finalName)} 融合重写`,
-          fastlane: `单模型直答 · ${modelName(finalName)}`,
+          fastlane: `回答模型 · ${modelName(finalName)}`,
           routed: `单模型路由 · ${modelName(finalName)}`,
           fallback: `兜底直连 · ${modelName(finalName)}`,
           manual: `手动指定 · ${modelName(finalName)}`,
@@ -354,6 +343,14 @@ window.TestChat = (function () {
               el("div", {}, [c2.content]),
             ])),
           ]);
+        }
+      }
+      if (!routeCardRendered) {
+        if (!steps) reason.remove();
+        else {
+          const summary = el("details", {}, [el("summary", { class: "muted", style: "cursor:pointer" },
+            [`思考过程（${steps} 步）`]), ...processNodes]);
+          reason.replaceWith(el("div", { class: "reason-panel" }, [summary]));
         }
       }
       if (evt.content) bubble.appendChild(el("div", {}, [evt.content]));

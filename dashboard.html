@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5.5' fill='%231DA1F2'/%3E%3Crect x='10.5' y='3.6' width='9.6' height='7.3' rx='2.7' fill='none' stroke='%23fff' stroke-width='1.5' opacity='0.75'/%3E%3Cpath d='M3.4 12a3.7 3.7 0 0 1 3.7-3.7h6a3.7 3.7 0 0 1 3.7 3.7v2.3a3.7 3.7 0 0 1-3.7 3.7H9.5l-3.1 2.6c-.55.46-1.3.07-1.3-.64v-2.4A3.7 3.7 0 0 1 3.4 14.3z' fill='%23fff'/%3E%3Ccircle cx='7.4' cy='13.1' r='1.05' fill='%231DA1F2'/%3E%3Ccircle cx='10.25' cy='13.1' r='1.05' fill='%231DA1F2'/%3E%3Ccircle cx='13.1' cy='13.1' r='1.05' fill='%231DA1F2'/%3E%3C/svg%3E">
-<title>运营看板 · 智能交互平台</title>
-<link rel="stylesheet" href="./shared.css?v=e794a2b7">
+<title>路由数据分析 · 模型路由平台</title>
+<link rel="stylesheet" href="./shared.css?v=13e2444d">
 <link rel="prefetch" href="./audit.html"><link rel="prefetch" href="./dashboard.html"><link rel="prefetch" href="./home-router.html"><link rel="prefetch" href="./playground.html"><link rel="prefetch" href="./router.html"><link rel="prefetch" href="./trace.html">
 <style>
   /* 组件数据卡：白底描边 + 左侧主色条，与灰底整体指标块区分 */
@@ -26,15 +26,15 @@
 </div>
 
 <script>window.SIA_PLATFORM="router";</script>
-<script src="./mock_data.js?v=be0b3fbc"></script>
-<script src="./mock_api.js?v=582ad7ee"></script>
-<script src="./tokens.js?v=be27f7d8"></script>
-<script src="./ui.js?v=487617bb"></script>
+<script src="./mock_data.js?v=d70be8bd"></script>
+<script src="./mock_api.js?v=15b223ff"></script>
+<script src="./tokens.js?v=360e29ec"></script>
+<script src="./ui.js?v=ff5d6dcf"></script>
 <script>
 UI.nav("dashboard");
 const { el } = UI;
 // 走查：看板两个视角提升为左侧导航二级项（交互看板 / 路由看板），页内不再放横向 tab
-const SECTION_NAMES = { survey: "交互数据（v1 不做）", routing: "路由数据分析" };
+const SECTION_NAMES = { survey: "交互数据", routing: "路由数据分析" };
 let surveyQuery = "";
 let activeTab = "survey";
 
@@ -163,49 +163,6 @@ function distBars(container, distribution, totalOverride) {
 // ================= 工具1：问卷与交互 =================
 
 async function renderSurvey() {
-  // v2：数据收集属于 Stage2——预告页替代 v1 旧看板（避免「不做」却展示旧数据的矛盾）
-  {
-    const box = content();
-    box.innerHTML = "";
-    box.appendChild(el("div", { style: "max-width:860px;margin:24px auto" }, [
-      el("div", { class: "card", style: "margin-bottom:14px" }, [
-        el("div", { style: "font-weight:700;font-size:18px;margin-bottom:6px" }, ["交互数据 · Stage2 提供"]),
-        el("div", { class: "muted" }, ["当前版本聚焦组件调用链路，以下数据模块规划中："]),
-      ]),
-      el("div", { class: "card", style: "margin-bottom:14px" }, [
-        el("div", { style: "font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px" }, [
-          el("span", { class: "chip green" }, ["能拿到"]), el("span", { class: "muted" }, ["SDK 埋点内建，提交自动回传"]),
-        ]),
-        el("div", { class: "muted", style: "line-height:2" }, [
-          "渲染次数（模型调用组件即渲染，按实例 / 类型 / 产品统计）", el("br"),
-          "渲染 → 提交漏斗（v1 的「触发」语义改为「模型调用」）", el("br"),
-          "提交内容的结构化聚合：选择分布（动态选项做 distinct / count 归并）、表单字段填写率、确认 / 取消比", el("br"),
-          "赞踩与偏好结果（回答质量信号，价值最高的一组）", el("br"),
-          "埋点健康（SDK 内建后可测丢失率）与群体决策回显",
-        ]),
-      ]),
-      el("div", { class: "card", style: "margin-bottom:14px" }, [
-        el("div", { style: "font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px" }, [
-          el("span", { class: "chip yellow" }, ["语义变化"]), el("span", { class: "muted" }, ["v1 指标换口径后保留"]),
-        ]),
-        el("div", { class: "muted", style: "line-height:2" }, [
-          "「触发分布」→「模型调用分布」：哪个组件被模型选用多（可得），但为什么被选用（模型决策依据）不可得", el("br"),
-          "用户维度：SDK 有会话与用户伪名，与 agent 侧真实用户体系的映射需要调用方传 user_id",
-        ]),
-      ]),
-      el("div", { class: "card" }, [
-        el("div", { style: "font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px" }, [
-          el("span", { class: "chip red" }, ["拿不到"]), el("span", { class: "muted" }, ["数据在 agent 侧，平台边界之外"]),
-        ]),
-        el("div", { class: "muted", style: "line-height:2" }, [
-          "对话渗透率：多少轮对话没出组件（分母在 agent 的对话流里，平台看不到）", el("br"),
-          "组件的上下文归因：用户问了什么导致模型出这个组件（除非 agent 主动回传 query 摘要）", el("br"),
-          "推荐默认项效果：v2 无预置推荐选项，该指标随触发机制一并下线",
-        ]),
-      ]),
-    ]));
-    return;
-  }
   const [q, ins] = await Promise.all([
     UI.api("/api/dashboard/questions?days=" + days()),
     UI.api("/api/dashboard/insights?days=" + days()),
@@ -424,24 +381,99 @@ function renderConversionModules(box, ins) {
 
 // ================= 工具2：模型路由 =================
 
+const ROUTING_STRATEGY_MOCK = [
+  { policy_id:"policy-manual", route_type:"manual", requests:13, single_rate:9/13, aggregation_rate:3/13, avg_cost:0.0005, p95:1100, failure_rate:1/13, fallback_rate:null },
+  { policy_id:"policy-global-balanced", route_type:"smart", requests:24, single_rate:13/24, aggregation_rate:8/24, avg_cost:0.0028, p95:1900, failure_rate:1/24, fallback_rate:2/24 },
+  { policy_id:"policy-scene-fast", route_type:"smart", requests:15, single_rate:13/15, aggregation_rate:0, avg_cost:0.0003, p95:820, failure_rate:1/15, fallback_rate:1/15 },
+  { policy_id:"policy-scene-quality", route_type:"smart", requests:8, single_rate:1/8, aggregation_rate:7/8, avg_cost:0.0064, p95:3200, failure_rate:0, fallback_rate:0 },
+];
+const routingFilters={policy:"",route_type:"",model:"",billing_type:""};
+function dashboardBillingType(m){const c=m.capabilities||{};return c.api_type||(m.deploy_type==="self_hosted"||(!c.node_id&&String(m.provider||"").toLowerCase()==="mocklab")?"private":"public");}
+function dashboardSavedProfiles(){try{return JSON.parse(localStorage.getItem("router-demo-model-profiles-v8")||"{}");}catch(_){return {};}}
+function routingPercentile(values,p){if(!values.length)return 0;const sorted=[...values].sort((a,b)=>a-b);return sorted[Math.min(sorted.length-1,Math.max(0,Math.ceil(sorted.length*p/100)-1))];}
+
 async function renderRouting() {
-  const fq = new URLSearchParams({ days: days() });
-  const [d, ins] = await Promise.all([
+  const fq = new URLSearchParams({ days: days(),...Object.fromEntries(Object.entries(routingFilters).filter(([,v])=>v)) });
+  const [d, ins, modelRes, policyRes] = await Promise.all([
     UI.api("/api/dashboard/overview?" + fq),
     UI.api("/api/dashboard/insights?days=" + days()),
+    UI.api("/v1/models"),
+    UI.api("/v1/policies"),
   ]);
   const box = content();
   box.innerHTML = "";
 
-  box.appendChild(el("div", { style: "margin-bottom:12px;display:flex;gap:8px;align-items:center" }, [
-    el("span", { class: "muted" }, [`统计窗口内共 ${d.total_requests} 条请求`]),
-    el("div", { style: "flex:1" }),
-    daysCtl,
-    el("a", { class: "btn small", href: "/api/export/traces.csv?" + fq, title: "导出当前窗口的请求明细 CSV" }, [UI.icon("download", 14), "导出数据"]),
+  const models=(modelRes.models||[]).filter(m=>m.status==="active"),policies=policyRes.policies||[];
+  const modelById=Object.fromEntries(models.map(m=>[m.model_id,m]));
+  const policyById=Object.fromEntries(policies.map(p=>[p.policy_id,p]));
+  const modelName=id=>modelById[id]?.display_name||modelById[id]?.model_name||id;
+  let strategyRows=ROUTING_STRATEGY_MOCK.map(row=>({...row,name:policyById[row.policy_id]?.name||({"policy-manual":"手动路由","policy-global-balanced":"全局均衡","policy-scene-fast":"省钱优先","policy-scene-quality":"专家模式"}[row.policy_id])}));
+  if(routingFilters.policy)strategyRows=strategyRows.filter(row=>row.policy_id===routingFilters.policy);
+  if(routingFilters.route_type)strategyRows=strategyRows.filter(row=>row.route_type===routingFilters.route_type);
+  const baseTotal=ROUTING_STRATEGY_MOCK.reduce((sum,row)=>sum+row.requests,0);
+  const strategyTotal=strategyRows.reduce((sum,row)=>sum+row.requests,0);
+  const allDistribution=Object.entries(d.route_distribution||{});
+  const eligibleModelIds=new Set(models.filter(m=>(!routingFilters.model||m.model_id===routingFilters.model)&&(!routingFilters.billing_type||dashboardBillingType(m)===routingFilters.billing_type)).map(m=>m.model_id));
+  const visibleDistribution=allDistribution.filter(([id])=>eligibleModelIds.has(id));
+  const distTotal=allDistribution.reduce((sum,[,n])=>sum+n,0)||1;
+  const modelFraction=visibleDistribution.reduce((sum,[,n])=>sum+n,0)/distTotal;
+  const scale=strategyTotal/baseTotal*modelFraction;
+  const totalRequests=Math.round(baseTotal*scale);
+  const scaleCount=n=>Math.round((Number(n)||0)*scale);
+  const smartRows=strategyRows.filter(row=>row.route_type==="smart"),manualRows=strategyRows.filter(row=>row.route_type==="manual");
+  const smartRequests=Math.round(smartRows.reduce((sum,row)=>sum+row.requests,0)*modelFraction);
+  const manualRequests=Math.round(manualRows.reduce((sum,row)=>sum+row.requests,0)*modelFraction);
+  const smartSingle=Math.round(smartRows.reduce((sum,row)=>sum+row.requests*row.single_rate,0)*modelFraction);
+  const smartFallback=Math.round(smartRows.reduce((sum,row)=>sum+row.requests*(row.fallback_rate||0),0)*modelFraction);
+  const smartFailedRequests=Math.round(smartRows.reduce((sum,row)=>sum+row.requests*row.failure_rate,0)*modelFraction);
+  const manualFailedRequests=Math.round(manualRows.reduce((sum,row)=>sum+row.requests*row.failure_rate,0)*modelFraction);
+  const manualSingle=Math.round(manualRows.reduce((sum,row)=>sum+row.requests*row.single_rate,0)*modelFraction);
+  const failedRequests=Math.round(strategyRows.reduce((sum,row)=>sum+row.requests*row.failure_rate,0)*modelFraction);
+  const aggregateRequests=Math.round(strategyRows.reduce((sum,row)=>sum+row.requests*row.aggregation_rate,0)*modelFraction);
+  const savedProfiles=dashboardSavedProfiles();
+  const packageModels=models.filter(m=>dashboardBillingType(m)==="package"&&eligibleModelIds.has(m.model_id));
+  const packageQuota=packageModels.reduce((sum,m)=>sum+(Number(savedProfiles[m.model_id]?.cost?.package_token_limit)||10000),0);
+  const packageCallFraction=allDistribution.reduce((sum,[id,n])=>eligibleModelIds.has(id)&&dashboardBillingType(modelById[id]||{})==="package"?sum+n:sum,0)/distTotal;
+  const packageUsed=packageModels.length?Math.round(((d.tokens?.input||0)+(d.tokens?.output||0))*packageCallFraction*strategyTotal/baseTotal):0;
+  const packageOverage=Math.max(0,packageUsed-packageQuota);
+  const allUsageCost=Object.entries(d.cost_by_model||{}).reduce((sum,[id,cost])=>dashboardBillingType(modelById[id]||{})==="public"?sum+Number(cost||0):sum,0);
+  const selectedUsageCost=Object.entries(d.cost_by_model||{}).reduce((sum,[id,cost])=>eligibleModelIds.has(id)&&dashboardBillingType(modelById[id]||{})==="public"?sum+Number(cost||0):sum,0);
+  const packageOverageCost=packageModels.reduce((sum,m)=>{const c=savedProfiles[m.model_id]?.cost||{};if(!c.package_overage_available||!packageOverage)return sum;const inputPrice=Number(c.package_overage_input)||0,outputPrice=Number(c.package_overage_output)||0;return sum+packageOverage/1000000*(inputPrice+outputPrice)/2;},0);
+  const measurableCost=(selectedUsageCost+packageOverageCost)*strategyTotal/baseTotal;
+  const costPerRequestFactor=modelFraction&&allUsageCost?selectedUsageCost/allUsageCost/modelFraction:0;
+  const scopedCostFactor=d.cost_total?measurableCost/d.cost_total:0;
+  const turnCostSamples=strategyRows.flatMap(row=>Array.from({length:Math.round(row.requests*modelFraction)},()=>row.avg_cost*costPerRequestFactor));
+  const sampleCostTotal=turnCostSamples.reduce((sum,n)=>sum+n,0);
+  const turnCostScale=sampleCostTotal?measurableCost/sampleCostTotal:0;
+  const normalizedTurnCosts=turnCostSamples.map(n=>n*turnCostScale);
+  const turnTokenSamples=[];
+  const addTokenSamples=(count,value)=>{for(let i=0;i<count;i++)turnTokenSamples.push(value);};
+  addTokenSamples(smartSingle,420);addTokenSamples(manualSingle,480);addTokenSamples(aggregateRequests,1000);
+  addTokenSamples(smartFallback,650);addTokenSamples(failedRequests,120);
+  const rawTokenTotal=turnTokenSamples.reduce((sum,n)=>sum+n,0);
+  const actualTokenTotal=scaleCount((d.tokens?.input||0)+(d.tokens?.output||0)+(d.tokens?.thinking||0));
+  const turnTokenScale=rawTokenTotal?actualTokenTotal/rawTokenTotal:0;
+  const normalizedTurnTokens=turnTokenSamples.map(n=>Math.round(n*turnTokenScale));
+
+  const filterControl=(label,key,width,options)=>el("label",{style:"display:flex;align-items:center;gap:6px"},[
+    el("span",{class:"muted",style:"font-size:var(--font-small);white-space:nowrap"},[label]),
+    UI.fancySelect({value:routingFilters[key],width,options,onChange:value=>{routingFilters[key]=value;renderRouting();}}),
+  ]);
+  const hasFilter=Object.values(routingFilters).some(Boolean);
+  box.appendChild(el("div",{class:"card",style:"padding:12px 14px;margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"},[
+    filterControl("策略","policy","150px",[["","全部策略"],...policies.filter(p=>p.enabled&&!p.ab_group).map(p=>[p.policy_id,p.name])]),
+    filterControl("路由类型","route_type","130px",[["","全部类型"],["smart","智能路由"],["manual","手动路由"]]),
+    filterControl("回答模型","model","175px",[["","全部回答模型"],...models.map(m=>[m.model_id,modelName(m.model_id)])]),
+    filterControl("计费类型","billing_type","155px",[["","全部计费类型"],["public","按使用量计费"],["package","按固定套餐计费"],["private","内部固定资源"]]),
+    hasFilter?el("button",{class:"btn small ghost",onclick:()=>{Object.keys(routingFilters).forEach(key=>routingFilters[key]="");renderRouting();}},["重置筛选"]):null,
+    el("div",{style:"flex:1"}),daysCtl,
+    el("a",{class:"btn small",href:"/api/export/traces.csv?"+fq,title:"按当前筛选条件导出请求明细 CSV"},[UI.icon("download",14),"导出数据"]),
   ]));
 
-  // 同类指标合并成三张复合卡：成本与用量 / 路由行为 / 聚合效果
+  box.appendChild(el("div",{class:"muted",style:"margin-bottom:12px"},[`当前筛选范围内共 ${totalRequests} 条请求；内部固定资源按不计成本处理`])) ;
+
   const ag = d.aggregation_stats || {};
+  const aggregateCost=aggregateRequests?Math.min(measurableCost,(ag.cost||0)*scale):0;
   const mm = (label, value, sub, help) => el("div", { class: "mini-metric" }, [
     el("div", { class: "mm-label" }, [label, help ? UI.help(help) : null]),
     el("div", { class: "mm-value num" }, [String(value)]),
@@ -452,25 +484,27 @@ async function renderRouting() {
     el("div", { class: "mini-metrics duo" }, cells),
   ]);
   box.appendChild(el("div", { class: "grid cols-3", style: "margin-bottom:12px" }, [
-    kpiCard("成本与用量", [
-      mm("请求数", d.total_requests),
-      mm("总成本", UI.fmtCost(d.cost_total)),
-      mm("会话成本 P50", UI.fmtCost(d.session_cost.p50), null, "一半会话的成本不超过这个数"),
-      mm("会话成本 P99", UI.fmtCost(d.session_cost.p99), null, "最贵的 1% 会话成本线"),
+    kpiCard("成本", [
+      mm("累计已核算调用成本", UI.fmtCost(measurableCost), "当前时间范围与筛选条件", "当前统计范围内所有请求的累计调用总成本：按使用量计费的输入、输出等费用，加上固定套餐的超额费用；不包含套餐额度内调用、内部固定资源、不计成本及成本未知的模型"),
+      mm("单轮请求成本 P50", normalizedTurnCosts.length?UI.fmtCost(routingPercentile(normalizedTurnCosts,50)):"-", null, "以一次用户请求为一轮，汇总该轮路由器模型、回答模型及聚合模型产生的已核算成本；P50 表示一半请求的单轮成本不超过此值"),
+      mm("单轮请求成本 P95", normalizedTurnCosts.length?UI.fmtCost(routingPercentile(normalizedTurnCosts,95)):"-", null, "以一次用户请求为一轮，汇总该轮路由器模型、回答模型及聚合模型产生的已核算成本；P95 表示 95% 请求的单轮成本不超过此值"),
+      mm("聚合总成本",aggregateRequests?UI.fmtCost(aggregateCost):"-","已核算调用成本","当前统计范围内全部聚合请求产生的已核算调用成本；内部固定资源不计成本，固定套餐额度内不重复计费"),
+      mm("聚合平均成本",aggregateRequests?UI.fmtCost(aggregateCost/aggregateRequests):"-",null,"聚合请求产生的已核算调用成本 ÷ 聚合请求数"),
     ]),
-    kpiCard("路由行为", [
-      mm("聚合率", UI.fmtPct(d.aggregation_rate), null, "多模型并发后聚合重写的占比，成本的最大杠杆"),
-      mm("快车道", UI.fmtPct(d.fastlane_rate), null, "高置信直接单模型作答的占比"),
-      mm("模型多样性", (Number(d.selection_entropy) || 0).toFixed(2), d.entropy_alert ? "低于告警线" : "健康", "路由采用模型的分布熵，越低越集中；告警线 1.0"),
-      mm("兜底与降级", UI.fmtPct(d.total_requests ? (((d.switch_counts || {}).fallback || 0) + ((d.switch_counts || {}).degraded || 0)) / d.total_requests : 0),
-        null, "切兜底直连或降级处理的请求占比，健康时接近 0"),
+    kpiCard("用量", [
+      mm("请求数", totalRequests),
+      mm("单轮请求 Token P50", normalizedTurnTokens.length?routingPercentile(normalizedTurnTokens,50).toLocaleString("zh-CN"):"-", "输入 + 输出 + 思考 Token", "汇总一次请求内所有模型调用的输入、输出和思考 Token；聚合请求会包含多个回答模型及聚合模型产生的 Token"),
+      mm("单轮请求 Token P95", normalizedTurnTokens.length?routingPercentile(normalizedTurnTokens,95).toLocaleString("zh-CN"):"-", "输入 + 输出 + 思考 Token", "95% 请求的单轮 Token 总量不超过此值；缓存命中 Token 不重复计入"),
+      mm("套餐额度使用率", packageQuota?UI.fmtPct(packageUsed/packageQuota):"-",packageQuota?`${packageUsed.toLocaleString("zh-CN")} / ${packageQuota.toLocaleString("zh-CN")} Token`:"暂无套餐模型"),
+      mm("套餐超额 Token", packageQuota?packageOverage.toLocaleString("zh-CN"):"-",packageQuota&&!packageOverage?"尚未超额":null),
     ]),
-    kpiCard("聚合效果", [
-      mm("聚合请求", ag.requests ?? "-", d.total_requests ? `占 ${Math.round((ag.requests || 0) / d.total_requests * 100)}%` : null, "得分接近时多路回答由聚合器融合重写"),
-      mm("聚合成本占比", ag.cost_share == null ? "-" : UI.fmtPct(ag.cost_share), ag.cost ? `共 ${UI.fmtCost(ag.cost)}` : null),
-      mm("聚合平均延迟", ag.avg_latency_agg == null ? "-" : UI.fmtMs(ag.avg_latency_agg)),
-      mm("单模型平均延迟", ag.avg_latency_single == null ? "-" : UI.fmtMs(ag.avg_latency_single),
-        ag.avg_latency_agg && ag.avg_latency_single ? `聚合慢 ${UI.fmtMs(Math.max(0, ag.avg_latency_agg - ag.avg_latency_single))}` : null),
+    kpiCard("路由行为与聚合用量", [
+      mm("智能路由调用次数", smartRequests,totalRequests?`占 ${UI.fmtPct(smartRequests/totalRequests)}`:null,"路由类型为智能路由的请求数及其占全部请求的比例"),
+      mm("手动路由调用次数", manualRequests,totalRequests?`占 ${UI.fmtPct(manualRequests/totalRequests)}`:null,"路由类型为手动路由的请求数及其占全部请求的比例"),
+      mm("聚合路由调用次数", aggregateRequests,totalRequests?`占 ${UI.fmtPct(aggregateRequests/totalRequests)}`:null,"用户选择聚合并实际进入聚合流程的请求数及其占全部请求的比例；聚合请求可能来自智能路由或手动路由"),
+      mm("模型多样性", (Number(d.selection_entropy) || 0).toFixed(2), d.entropy_alert ? "低于告警线" : "健康", "计算方式：H = -Σ(pᵢ × log₂pᵢ)，pᵢ 为各最终出答模型的请求占比。单模型请求统计回答模型，聚合请求统计聚合模型，兜底请求统计兜底模型；一次请求只计一个模型。0 表示全部集中到一个模型，使用越均衡数值越高；告警线为 1.0。"),
+      mm("兜底模型调用失败率", smartRequests?UI.fmtPct(smartFailedRequests/smartRequests):"-",smartRequests?null:"当前没有智能路由请求","智能路由中，兜底模型调用后仍未返回有效答案的请求数 ÷ 智能路由请求总数"),
+      mm("手动回答模型调用失败率", manualRequests?UI.fmtPct(manualFailedRequests/manualRequests):"-",manualRequests?null:"当前没有手动路由请求","手动路由没有兜底模型；用户指定的回答模型调用失败请求数 ÷ 手动路由请求总数"),
     ]),
   ]));
   if (d.entropy_alert) {
@@ -481,43 +515,64 @@ async function renderRouting() {
     ]));
   }
 
+  const strategyCard=el("div",{class:"card",style:"margin-bottom:12px"},[
+    el("div",{style:"font-weight:600;margin-bottom:2px"},["策略效果对比"]),
+    el("div",{class:"muted",style:"margin-bottom:8px"},["按策略比较路由方式、成本、耗时和稳定性"]),
+    el("div",{style:"overflow-x:auto"},[el("table",{class:"data"},[
+      el("thead",{},[el("tr",{},["策略","路由类型","请求数","请求占比","平均已核算成本","P95 耗时","最终调用失败率"].map(h=>el("th",{style:"white-space:nowrap"},[h])))]),
+      el("tbody",{},strategyRows.map(row=>{const count=Math.round(row.requests*modelFraction);return el("tr",{},[
+        el("td",{style:"font-weight:600;white-space:nowrap"},[row.name]),el("td",{},[el("span",{class:row.route_type==="manual"?"chip gray":"chip blue"},[row.route_type==="manual"?"手动路由":"智能路由"])]),
+        el("td",{},[String(count)]),el("td",{},[UI.fmtPct(totalRequests?count/totalRequests:0)]),
+        el("td",{},[UI.fmtCost(row.avg_cost*costPerRequestFactor)]),el("td",{},[UI.fmtMs(row.p95)]),el("td",{},[UI.fmtPct(row.failure_rate)]),
+      ]);})),
+    ])]),
+  ]);box.appendChild(strategyCard);
+
   const grid1 = el("div", { class: "grid cols-2", style: "margin-bottom:12px" });
-  const [c1, b1] = chartCard("路由分布", "各模型在窗口内被路由采用的次数");
-  const [c2, b2] = chartCard("失败与降级", "模型调用异常与各类降级，健康时为空");
+  const [c1, b1] = chartCard("最终出答模型分布", "单模型请求统计回答模型，聚合请求统计聚合模型，成功兜底请求统计兜底模型；一次请求只计一次，不统计其他候选模型");
+  const [c2, b2] = chartCard("失败与兜底", "区分智能路由成功兜底、兜底模型最终失败，以及手动回答模型调用失败");
   grid1.appendChild(c1); grid1.appendChild(c2);
   box.appendChild(grid1);
-  const failEntries = Object.entries(d.failures);
+  const failEntries=[["智能路由成功兜底",smartFallback],["兜底模型调用失败",smartFailedRequests],["手动回答模型调用失败",manualFailedRequests]].filter(([,n])=>n>0);
   requestAnimationFrame(() => {
-    const rd = Object.entries(d.route_distribution);
+    const rd = visibleDistribution.map(([id,n])=>[modelName(id),Math.round(n*strategyTotal/baseTotal)]).filter(([,n])=>n>0);
     if (rd.length) UI.barChart(b1, { categories: rd.map(x => x[0]), values: rd.map(x => x[1]), horizontal: true, unit: " 次" });
+    else b1.appendChild(el("div",{class:"muted"},["当前筛选条件下暂无回答模型数据"]));
     if (failEntries.length) {
       UI.barChart(b2, {
-        categories: failEntries.map(x => ({ model_call: "模型调用异常", route_switch: "路由降级", card_render: "渲染降级",
-          render_degraded: "组件降级", card_ref_missing: "配置引用失效" }[x[0]] || x[0])),
+        categories: failEntries.map(x => x[0]),
         values: failEntries.map(x => x[1]), horizontal: true, unit: " 次" });
     } else b2.appendChild(el("div", { class: "muted" }, ["窗口内没有失败或降级请求"]));
   });
 
   const grid2 = el("div", { class: "grid cols-2", style: "margin-bottom:12px" });
-  const [c3, b3] = chartCard("成本走势（元）");
-  const [c4, b4] = chartCard("成本按模型");
+  const [c3, b3] = chartCard("已核算调用成本走势（元）","内部固定资源不计成本；套餐额度内不重复计费"),
+        [c4, b4] = chartCard("模型成本构成（按角色）","拆分路由器模型、回答模型和聚合模型产生的已核算成本");
   grid2.appendChild(c3); grid2.appendChild(c4);
   box.appendChild(grid2);
   const daysArr = Object.entries(d.cost_by_day);
   requestAnimationFrame(() => {
     if (daysArr.length) UI.lineChart(b3, {
-      labels: daysArr.map(x => x[0]), series: [{ name: "成本", values: daysArr.map(x => Number(x[1].toFixed(4))) }] });
-    const models = Object.entries(d.cost_by_model);
-    if (models.length) UI.barChart(b4, { categories: models.map(x => x[0]), values: models.map(x => x[1]), horizontal: true, format: v => UI.fmtCost(v) });
+      labels: daysArr.map(x => x[0]), series: [{ name: "已核算调用成本", values: daysArr.map(x => Number((x[1]*scopedCostFactor).toFixed(4))) }] });
+    const roleCosts=[["路由器模型",measurableCost*0.04],["回答模型",measurableCost*0.78],["聚合模型",measurableCost*0.18]];
+    UI.barChart(b4,{categories:roleCosts.map(x=>x[0]),values:roleCosts.map(x=>x[1]),horizontal:true,format:v=>UI.fmtCost(v)});
   });
 
+  const pathData=d.latency_by_path||{};
+  const combinedSingle=pathData.fastlane||pathData.routed||{count:0,p50:0,p95:0};
+  const aggData=pathData.aggregated||{count:0,p50:0,p95:0};
+  const manualAggShare=aggregateRequests?manualRows.reduce((sum,row)=>sum+row.requests*row.aggregation_rate,0)/strategyRows.reduce((sum,row)=>sum+row.requests*row.aggregation_rate,0):0;
+  const latencyRows=[];
+  if(smartRows.length)latencyRows.push(["智能路由·单模型直答",smartSingle,combinedSingle,2000],["智能路由·聚合",Math.round(aggregateRequests*(1-manualAggShare)),aggData,25000],["智能路由·兜底",smartFallback,pathData.fallback||{p50:0,p95:0},null]);
+  if(manualRows.length)latencyRows.push(["手动路由·单模型回答",manualSingle,pathData.manual||{p50:0,p95:0},2000],["手动路由·聚合",Math.round(aggregateRequests*manualAggShare),aggData,25000]);
+  latencyRows.push(["调用失败",failedRequests,pathData.degraded||{p50:0,p95:0},null]);
   const latCard = el("div", { class: "card", style: "margin-bottom:12px" }, [
-    el("div", { style: "font-weight:600;margin-bottom:8px" }, ["延迟（按路径）"]),
+    el("div", { style: "font-weight:600;margin-bottom:2px" }, ["耗时（按路径）"]),
+    el("div", { class:"muted",style:"margin-bottom:8px" }, ["从收到请求到最终答案生成完成的端到端耗时"]),
     el("table", { class: "data" }, [
       el("thead", {}, [el("tr", {}, ["路径", "请求数", "P50", "P95", "验收线"].map(h => el("th", { class: h === "验收线" ? "w-main" : "" }, [h])))]),
-      el("tbody", {}, Object.entries(d.latency_by_path).map(([path, v]) => {
-        const name = { fastlane: "快车道", routed: "单模型路由", aggregated: "聚合路径", degraded: "降级", manual: "手动指定", fallback: "兜底直连", explore: "随机探索（历史）", await_user: "等待用户（触发组件）" }[path] || path;
-        const target = path === "fastlane" ? 2000 : path === "aggregated" ? 25000 : null;
+      el("tbody", {}, latencyRows.map(([name,count,raw,target]) => {
+        const v={...raw,count};
         const pass = target == null || v.p95 <= target;
         return el("tr", {}, [
           el("td", {}, [name]), el("td", {}, [String(v.count)]),
@@ -531,26 +586,18 @@ async function renderRouting() {
   box.appendChild(latCard);
 
   const grid3 = el("div", { class: "grid cols-2", style: "margin-bottom:12px" });
-  const [c5, b5] = chartCard("Token 用量");
-  const [c6, b6] = chartCard("模型质量", "来自用户赞踩与多回答择优的反馈");
-  grid3.appendChild(c5); grid3.appendChild(c6);
+  const [c5, b5] = chartCard("Token 用量（按类型）");
+  const [cRole, bRole] = chartCard("Token 用量（按模型角色）","路由器负责判定，回答模型生成候选答案，聚合模型负责融合定稿");
+  [c5,cRole].forEach(card=>card.style.minWidth="0");
+  grid3.append(c5,cRole);
   box.appendChild(grid3);
   requestAnimationFrame(() => {
     UI.barChart(b5, {
-      categories: ["输入", "输出", "思考", "缓存命中"],
-      values: [d.tokens.input, d.tokens.output, d.tokens.thinking, d.tokens.cache_hit],
+      categories: ["输入 Token", "输出 Token", "思考 Token", "缓存命中 Token"],
+      values: [scaleCount(d.tokens.input),scaleCount(d.tokens.output),scaleCount(d.tokens.thinking),scaleCount(d.tokens.cache_hit)],
       horizontal: true, unit: " tok" });
-    if (ins.model_quality.length) {
-      b6.appendChild(el("table", { class: "data" }, [
-        el("thead", {}, [el("tr", {}, ["模型", "择优胜率", "点踩率", "标签量"].map(h => el("th", { class: h === "模型" ? "w-main" : "" }, [h])))]),
-        el("tbody", {}, ins.model_quality.map(m => el("tr", {}, [
-          el("td", {}, [m.model_id]),
-          el("td", {}, [m.preference_win_rate == null ? "-" : UI.fmtPct(m.preference_win_rate)]),
-          el("td", {}, [m.downvote_rate == null ? "-" : UI.fmtPct(m.downvote_rate)]),
-          el("td", {}, [String(m.label_count)]),
-        ]))),
-      ]));
-    } else b6.appendChild(el("div", { class: "muted" }, ["暂无数据：用户在对话里赞踩或多回答择优后出现"]));
+    const totalRoleTokens=scaleCount((d.tokens.input||0)+(d.tokens.output||0)+(d.tokens.thinking||0));
+    UI.barChart(bRole,{categories:["路由器模型","回答模型","聚合模型"],values:[Math.round(totalRoleTokens*0.04),Math.round(totalRoleTokens*0.80),Math.round(totalRoleTokens*0.16)],horizontal:true,unit:" tok"});
   });
 
 }

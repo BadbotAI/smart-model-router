@@ -1,30 +1,26 @@
 {
   "brand_id": "default",
-  "brand_name": "默认风格 · 墨蓝",
+  "brand_name": "默认风格 · Sky",
   "color": {
-    "primary": "#3E63DD",
-    "primary_weak": "#EDF2FE",
+    "primary": "#1DA1F2",
+    "primary_weak": "#E9F1FB",
     "bg_page": "#FFFFFF",
-    "bg_surface": "#F9FAFB",
-    "text_primary": "#1C2434",
-    "text_secondary": "#57627B",
-    "text_muted": "#8D96AA",
-    "border": "#E4E9F0",
-    "success": "#30A46C",
-    "warning": "#D6970A",
-    "danger": "#E5484D",
-    "accent": "#8E4EC6",
-    "ring": "#3E63DD",
-    "bg_elevated": "#FFFFFF",
-    "bg_sunken": "#EEF0F4"
+    "bg_surface": "#F7F8F8",
+    "text_primary": "#0F1B26",
+    "text_secondary": "#43596B",
+    "text_muted": "#71828F",
+    "border": "#E1EAF1",
+    "success": "#17A673",
+    "warning": "#B97A17",
+    "danger": "#E5484D"
   },
   "chart": {
     "categorical": [
-      "#3E63DD",
-      "#0FA3A3",
-      "#8E4EC6",
-      "#EE7712",
-      "#D6409F",
+      "#1DA1F2",
+      "#17B890",
+      "#F2C14E",
+      "#2ECC71",
+      "#E0446E",
       "#6E4BD8",
       "#B97A17",
       "#E5484D"
@@ -68,22 +64,5 @@
   },
   "shape": {
     "control_style": "rounded"
-  },
-  "color_dark": {
-    "primary": "#5472E4",
-    "primary_weak": "#202C55",
-    "accent": "#A06FE0",
-    "ring": "#5472E4",
-    "bg_page": "#101319",
-    "bg_surface": "#171B24",
-    "border": "#2A3140",
-    "text_primary": "#EDEFF5",
-    "text_secondary": "#A3ACC2",
-    "text_muted": "#6E7891",
-    "success": "#33B074",
-    "warning": "#E2A336",
-    "danger": "#EB6F76",
-    "bg_elevated": "#1B2130",
-    "bg_sunken": "#0C0F16"
   }
 }

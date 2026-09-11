@@ -116,7 +116,6 @@ window.Components = (function () {
       const fn = RENDERERS[envelope.component_type];
       if (!fn) throw new Error("unsupported component_type");
       const node = fn(envelope, ctx);
-      applyStyleOverrides(node, envelope.style_overrides);
       // 溯源信息：每个由配置触发的组件都带配置 ID 与版本（后台按此统计），dataset 供埋点与自动化测试定位
       node.dataset.componentType = envelope.component_type;
       node.dataset.renderId = envelope.render_id || "";
@@ -163,7 +162,7 @@ window.Components = (function () {
   };
 
   function compCard(children, cls = "") {
-    // brand-scope：品牌 design token 的作用域（导入风格主题只改组件）
+    // brand-scope：品牌 design token 的作用域（导入品牌风格只改组件）
     return el("div", { class: "comp brand-scope " + cls }, children);
   }
   function compTitle(text) {
@@ -191,8 +190,8 @@ window.Components = (function () {
       el("div", { style: "display:flex;align-items:baseline;gap:10px;margin-top:2px" }, [
         el("span", { class: "metric-value", style: "font-size:var(--mv-size, 30px)" }, [String(p.value)]),
         p.unit ? el("span", { class: "secondary" }, [p.unit]) : null,
-        deltaStr ? el("span", { class: "delta-chip " + (up ? "up" : "down"), title: up ? "较基线上升" : "较基线下降" }, [
-          UI.icon(up ? "arrowup" : "arrowdown", 11), deltaStr.replace("-", "")]) : null,
+        deltaStr ? el("span", { style: `font-size:var(--font-small);color:${up ? "#006300" : "var(--danger)"}` },
+          [(up ? "上升 " : "下降 ") + deltaStr.replace("-", "")]) : null,
       ]),
       p.baseline ? el("div", { class: "muted metric-baseline", style: "font-size:var(--font-caption);margin-top:4px" }, ["基线：" + p.baseline]) : null,
     ]);
@@ -211,63 +210,39 @@ window.Components = (function () {
   }
 
   function rTimeline(env) {
-    // v2.3 视觉重做：节点圆点 + 竖连线，最新一条主色实心强调
     const p = env.params;
-    const evs = p.events || [];
     return compCard([
       compTitle(p.title),
-      el("div", { class: "tl-list" }, evs.map((e, i) => el("div", { class: "tl-row" }, [
-        el("div", { class: "tl-ts" }, [e.ts || ""]),
-        el("div", { class: "tl-rail" }, [
-          el("span", { class: "tl-dot" + (i === evs.length - 1 ? " now" : "") }),
-          i < evs.length - 1 ? el("span", { class: "tl-line" }) : null,
-        ]),
-        el("div", { class: "tl-body" }, [
-          el("div", { class: "tl-title" + (i === evs.length - 1 ? " now" : "") }, [e.title || ""]),
-          e.desc ? el("div", { class: "muted", style: "font-size:var(--font-caption)" }, [e.desc]) : null,
-        ]),
-      ]))),
+      el("div", {}, (p.events || []).map(e =>
+        el("div", { style: "display:flex;gap:12px;padding:6px 0;border-left:2px solid var(--primary);padding-left:12px;margin-left:4px" }, [
+          el("div", { class: "muted", style: "min-width:48px;font-variant-numeric:tabular-nums" }, [e.ts || ""]),
+          el("div", {}, [
+            el("div", { style: "font-weight: 600" }, [e.title || ""]),
+            e.desc ? el("div", { class: "muted" }, [e.desc]) : null,
+          ]),
+        ]))),
     ]);
   }
 
   function rSteps(env) {
-    // v2.3 视觉重做：真步骤条——圆形节点 + 连线 + 完成/当前/待办三态
     const p = env.params;
-    const steps = p.steps || [];
-    const cur = Math.min(Math.max(p.current_index || 0, 0), Math.max(steps.length - 1, 0));
+    const cur = p.current_index || 0;
     return compCard([
       compTitle(p.title),
-      el("div", { class: "steps-row" }, steps.map((s, i) => {
-        const st = i < cur ? "done" : i === cur ? "cur" : "todo";
-        return el("div", { class: "step-cell" }, [
-          el("div", { class: "step-track" }, [
-            el("span", { class: "step-line" + (i === 0 ? " ghost" : i <= cur ? " fill" : "") }),
-            el("span", { class: "step-node " + st }, st === "done" ? [UI.icon("check", 12)] : [String(i + 1)]),
-            el("span", { class: "step-line" + (i === steps.length - 1 ? " ghost" : i < cur ? " fill" : "") }),
-          ]),
-          el("div", { class: "step-label " + st }, [String(s)]),
-        ]);
-      })),
+      el("div", { style: "display:flex;gap:6px;flex-wrap:wrap" }, (p.steps || []).map((s, i) =>
+        el("span", { class: "chip " + (i < cur ? "green" : i === cur ? "blue" : "gray") },
+          [`${i + 1}. ${s}`]))),
     ]);
   }
 
   function rTable(env) {
     const p = env.params;
-    const so = env.style_overrides || {};
-    const tblCls = "data" + (so.striped === false ? " no-striped" : "") +
-      (so.header_bold === false ? " hdr-normal" : "") + (so.outline === true ? " tbl-outline" : "");
-    const rows = p.rows || [];
-    // 数字列（含 % / 千分位 / 正负号）自动右对齐 + 等宽数字
-    const numCol = (p.columns || []).map((_, j) =>
-      rows.length > 0 && rows.every(r => /^[-+]?[\d.,]+%?$/.test(String((r || [])[j] ?? "").trim())));
     return compCard([
       compTitle(p.title),
       el("div", { style: "overflow-x:auto" }, [
-        el("table", { class: tblCls }, [
-          el("thead", {}, [el("tr", {}, (p.columns || []).map((c, j) =>
-            el("th", { class: numCol[j] ? "num-col" : "" }, [String(c)])))]),
-          el("tbody", {}, rows.map(r => el("tr", {}, (r || []).map((c, j) =>
-            el("td", { class: numCol[j] ? "num-col" : "" }, [String(c)]))))),
+        el("table", { class: "data" }, [
+          el("thead", {}, [el("tr", {}, (p.columns || []).map(c => el("th", {}, [String(c)])))]),
+          el("tbody", {}, (p.rows || []).map(r => el("tr", {}, r.map(c => el("td", {}, [String(c)]))))),
         ]),
       ]),
     ]);
@@ -278,7 +253,6 @@ window.Components = (function () {
     const box = compCard([compTitle(p.title)]);
     const chartBox = el("div", {});
     box.appendChild(chartBox);
-    const so = env.style_overrides || {};
     requestAnimationFrame(() => UI.lineChart(chartBox, {
       series: p.series || [], labels: p.categories || p.x_axis || [], unit: p.unit || "",
       grid: so.grid !== false, gridStyle: so["grid.style"] || "solid",
@@ -298,7 +272,6 @@ window.Components = (function () {
     const box = compCard([compTitle(p.title)]);
     const chartBox = el("div", {});
     box.appendChild(chartBox);
-    const so = env.style_overrides || {};
     const series0 = (p.series || [])[0] || { values: [] };
     requestAnimationFrame(() => UI.barChart(chartBox, {
       categories: p.categories || [], values: series0.values || [], unit: p.unit || "",
@@ -436,13 +409,7 @@ window.Components = (function () {
         // 提交即终态：冻结组件内全部交互控件，避免"已提交但还能改"的状态错觉
         const root = btn.closest(".comp");
         if (root) root.querySelectorAll("button, input, textarea, select").forEach(n => n.disabled = true);
-        btn.textContent = "提交中…";
-        btn.classList.add("submitting");
-        setTimeout(() => {
-          btn.classList.remove("submitting");
-          btn.classList.add("submitted");
-          btn.textContent = "已提交";
-        }, 420);
+        btn.textContent = "已提交";
         ctx.onCollectSubmit(payload, env);
         // 群体回显开关：提交完成后显示其他人的选择情况
         if (env.params.echo_results && env.card_ref?.card_id) {
@@ -523,7 +490,7 @@ window.Components = (function () {
       const row = el("button", { class: "opt-item", type: "button", role: multi ? "checkbox" : "radio", "aria-checked": "false" }, [
         selDot(false, multi),
         el("span", { class: "opt-text" }, [o]),
-        o === p.recommended_default ? el("span", { class: "chip blue rec-chip", style: "flex:none" }, ["推荐"]) : null,
+        o === p.recommended_default ? el("span", { class: "chip blue", style: "flex:none" }, ["推荐"]) : null,
       ]);
       row._opt = o;
       row.onclick = () => {
@@ -679,7 +646,7 @@ window.Components = (function () {
   function rSlider(env, ctx) {
     const p = env.params;
     const min = p.min ?? 0, max = p.max ?? 100;
-    const init = p.default ?? p.recommended_default ?? Math.round((min + max) / 2);
+    const init = p.recommended_default ?? Math.round((min + max) / 2);
     const display = p.display || "slider";
     let getVal;
     let body;
@@ -824,7 +791,7 @@ window.Components = (function () {
   }
   function rPickerDatetime(env, ctx) {
     const p = env.params;
-    const withTime = (p.mode || p.display || "date") === "datetime";
+    const withTime = (p.display || "date") === "datetime";
     const input = el("input", { type: withTime ? "datetime-local" : "date", style: "max-width:240px" });
     // 快捷选项：多数人约的就是这三天
     let quick = withTime ? null : _quickChips([["今天", 0], ["明天", 1], ["后天", 2]], pr => { input.value = _dstr(pr[1]); });
@@ -1096,7 +1063,7 @@ window.Components = (function () {
 
   function rRank(env, ctx) {
     const p = env.params;
-    let order = [...(p.items || p.options || [])];
+    let order = [...(p.options || [])];
     if (!order.length) return compCard([compTitle(p.prompt), emptyState(env)]);
     const listBox = el("div", { class: "rank-list" });
     function getAfter(y) {
@@ -1305,9 +1272,7 @@ window.Components = (function () {
 
   function rScaleLikert(env, ctx) {
     const p = env.params;
-    const lk = p.likert || (p.scale
-      ? { from: 1, to: Math.max(2, Math.min(11, p.scale)), left: p.low_label || "", right: p.high_label || "" }
-      : { left: "非常不认可", right: "非常认可", steps: 5 });
+    const lk = p.likert || { left: "非常不认可", right: "非常认可", steps: 5 };
     const values = likertRange(lk);
     const display = p.display || "dots";
     let picked = null;
@@ -1357,20 +1322,16 @@ window.Components = (function () {
   // ================= 控制型 =================
 
   function rConfirm(env, ctx) {
-    // v2.4 视觉重做：圆形警示位 + 标题层次 + 右对齐动作行（去红条与 chip 的平铺感）
     const p = env.params;
     return compCard([
-      el("div", { style: "display:flex;gap:12px;align-items:flex-start" }, [
-        el("span", { class: "confirm-ico" }, [UI.icon("alert", 18)]),
-        el("div", { style: "flex:1;min-width:0" }, [
-          el("div", { class: "confirm-title" }, [p.title || p.prompt || "确认操作"]),
-          p.prompt && p.title ? el("div", { class: "secondary", style: "margin-top:3px" }, [p.prompt]) : null,
-          (p.action_desc || p.summary) ? el("div", { class: "confirm-note" }, [p.action_desc || p.summary]) : null,
-        ]),
+      el("div", { style: "display:flex;align-items:center;gap:8px;margin-bottom:6px" }, [
+        el("span", { class: "chip red" }, ["高风险"]),
+        el("span", { style: "font-weight:600" }, [p.title || "操作确认"]),
       ]),
-      el("div", { style: "margin-top:14px;display:flex;gap:8px;justify-content:flex-end" }, [
+      el("div", { class: "secondary" }, [p.action_desc || ""]),
+      el("div", { style: "margin-top:10px;display:flex;gap:8px" }, [
+        el("button", { class: "btn primary", onclick: (e) => { disableSiblings(e); ctx.onControl("confirm", env); } }, [p.confirm_label || "确认执行"]),
         el("button", { class: "btn", onclick: (e) => { disableSiblings(e); ctx.onControl("cancel", env); } }, [p.cancel_label || "取消"]),
-        el("button", { class: "btn confirm-danger", onclick: (e) => { disableSiblings(e); ctx.onControl("confirm", env); } }, [p.confirm_label || "确认执行"]),
       ]),
     ]);
   }
@@ -1401,25 +1362,23 @@ window.Components = (function () {
   // ================= 评价型 =================
 
   function rFeedbackBinary(env, ctx) {
-    // v2.4：单组赞踩——一行轻量卡（多维度配置也只展示一组，维度取第一项）
-    const p = env.params || {};
-    const dim = ((p.dimensions || [])[0]) || { key: "capability" };
-    const up = el("button", { class: "fb-btn", title: "赞", onclick: () => {
+    // §2.3.4 的合规路径二：单一赞踩 + 点踩后追问原因分类（原因分组区分 能力/偏好 两种语义）。
+    // 双维度并排展示信息过载，已按走查 A9 修正为此形态。
+    const row = el("span", { style: "display:inline-flex;gap:2px;align-items:center" });
+    const up = el("button", { class: "btn small ghost", onclick: () => {
       up.disabled = down.disabled = true;
-      up.classList.add("on");
-      emitBinary(env, ctx, { key: dim.key }, 1.0, null);
-    } }, [UI.icon("thumbup", 13), "赞"]);
-    const down = el("button", { class: "fb-btn down", title: "踩", onclick: () => {
+      up.style.color = "var(--primary)";
+      emitBinary(env, ctx, { key: "capability" }, 1.0, null);
+      UI.toast("已记录，谢谢反馈");
+    } }, ["赞"]);
+    const down = el("button", { class: "btn small ghost", onclick: () => {
       up.disabled = down.disabled = true;
-      down.classList.add("on");
+      down.style.color = "var(--primary)";
       askDownReason(env, ctx);
-    } }, [UI.icon("thumbdown", 13), "踩"]);
-    return compCard([
-      el("div", { style: "display:flex;align-items:center;gap:12px" }, [
-        el("span", { class: "secondary", style: "flex:1;min-width:0" }, [p.prompt || dim.label || "这条回答怎么样"]),
-        el("span", { class: "fb-pair" }, [up, down]),
-      ]),
-    ]);
+    } }, ["踩"]);
+    row.appendChild(up);
+    row.appendChild(down);
+    return row;
   }
 
   function askDownReason(env, ctx) {
@@ -1453,33 +1412,31 @@ window.Components = (function () {
     // 折叠呈现（走查 A9）：核心信号源，但不该在每条聚合回答下强占屏幕
     const p = env.params;
     const cands = p.candidates || [];
-    const box = el("div", { class: "comp" }, [
-      compTitle(p.prompt || "哪个回答更好？"),
-      el("div", { class: "muted", style: "font-size:var(--font-caption);margin-top:-4px" },
-        [`本次综合了 ${cands.length} 个候选回答，选出你认为更好的（可选）`]),
+    const box = el("details", {
+      class: "comp",
+      style: "background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-card);padding:10px 14px;margin-top:8px",
+    }, [
+      el("summary", { style: "cursor:pointer;color:var(--text-secondary);font-size:var(--font-small)" },
+        [`本次综合了 ${cands.length} 个候选回答，展开选出你认为更好的（可选）`]),
     ]);
-    const list = el("div", { class: "fb-cands" });
-    cands.forEach((c, i) => {
-      const cell = el("div", { class: "fb-cand", role: "radio", "aria-checked": "false", tabindex: "0" }, [
-        el("div", { class: "fb-cand-head" }, [
-          el("span", { class: "chip blue" }, [c.alias || c.label || `候选 ${i + 1}`]),
-          el("span", { class: "fb-cand-check" }, [UI.icon("check", 12)]),
-        ]),
-        el("div", { class: "fb-cand-body" }, [c.content || ""]),
-      ]);
-      const pick = () => {
-        list.querySelectorAll(".fb-cand").forEach(d => { d.style.pointerEvents = "none"; d.classList.add("settled"); });
-        cell.classList.add("on");
-        cell.setAttribute("aria-checked", "true");
-        ctx.sendEvent("feedback_given", env, {
-          selected_model_id: c.model_id,
-          unselected_model_ids: cands.filter(x => x.model_id !== c.model_id).map(x => x.model_id),
-        });
-        UI.toast("已记录你的择优选择");
-      };
-      cell.onclick = pick;
-      cell.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } };
-      list.appendChild(cell);
+    const list = el("div", { style: "display:flex;flex-direction:column;gap:8px;margin-top:8px" });
+    cands.forEach(c => {
+      list.appendChild(el("div", {
+        style: "border:1px solid var(--border);border-radius:var(--radius-control);padding:8px 12px;cursor:pointer",
+        onclick: (e) => {
+          list.querySelectorAll("div").forEach(d => d.style.pointerEvents = "none");
+          e.currentTarget.style.borderColor = "var(--primary)";
+          e.currentTarget.style.background = "var(--primary-weak)";
+          ctx.sendEvent("feedback_given", env, {
+            selected_model_id: c.model_id,
+            unselected_model_ids: cands.filter(x => x.model_id !== c.model_id).map(x => x.model_id),
+          });
+          UI.toast("已记录你的择优选择");
+        },
+      }, [
+        el("div", { class: "muted" }, [c.alias || c.model_id]),
+        el("div", { style: "font-size:var(--font-small)" }, [c.content || ""]),
+      ]));
     });
     box.appendChild(list);
     return box;
